@@ -15,6 +15,7 @@
 //! * `Waker`: see [`crate::Waker`].
 
 cfg_os_poll! {
+    #[cfg(any(unix,windows))]
     macro_rules! debug_detail {
         (
             $type: ident ($event_type: ty), $test: path,
@@ -51,7 +52,13 @@ cfg_os_poll! {
     }
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "hermit")]
+cfg_os_poll! {
+    mod hermit;
+    pub(crate) use self::hermit::*;
+}
+
+#[cfg(all(unix,not(target_os = "hermit")))]
 cfg_os_poll! {
     mod unix;
     pub use self::unix::*;

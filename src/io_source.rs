@@ -3,6 +3,10 @@ use std::ops::{Deref, DerefMut};
 use std::os::unix::io::AsRawFd;
 #[cfg(windows)]
 use std::os::windows::io::AsRawSocket;
+#[cfg(target_os = "hermit")]
+use std::os::hermit::io::AsAbi;
+#[cfg(target_os = "hermit")]
+use std::os::hermit::abi;
 #[cfg(debug_assertions)]
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{fmt, io};
@@ -197,6 +201,44 @@ where
         #[cfg(debug_assertions)]
         self.selector_id.remove_association(_registry)?;
         self.state.deregister()
+    }
+}
+
+#[cfg(target_os = "hermit")]
+impl<T> event::Source for IoSource<T>
+where
+    T: AsAbi<AbiType = abi::net::Socket>,
+{
+    fn register(
+        &mut self,
+        registry: &Registry,
+        token: Token,
+        interests: Interest,
+    ) -> io::Result<()> {
+        #[cfg(debug_assertions)]
+        self.selector_id.associate(registry)?;
+        registry
+            .selector()
+            .register(self.inner.as_abi(), token, interests)
+    }
+
+    fn reregister(
+        &mut self,
+        registry: &Registry,
+        token: Token,
+        interests: Interest,
+    ) -> io::Result<()> {
+        #[cfg(debug_assertions)]
+        self.selector_id.check_association(registry)?;
+        registry
+            .selector()
+            .reregister(self.inner.as_abi(), token, interests)
+    }
+
+    fn deregister(&mut self, registry: &Registry) -> io::Result<()> {
+        #[cfg(debug_assertions)]
+        self.selector_id.remove_association(registry)?;
+        registry.selector().deregister(self.inner.as_abi())
     }
 }
 

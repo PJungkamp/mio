@@ -18,6 +18,10 @@ use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 #[cfg(windows)]
 use std::os::windows::io::{AsRawSocket, FromRawSocket, IntoRawSocket, RawSocket};
+#[cfg(target_os = "hermit")]
+use std::os::hermit::io::{AsAbi, FromAbi, IntoAbi};
+#[cfg(target_os = "hermit")]
+use std::os::hermit::abi;
 
 /// A User Datagram Protocol socket.
 ///
@@ -631,5 +635,29 @@ impl FromRawSocket for UdpSocket {
     /// non-blocking mode.
     unsafe fn from_raw_socket(socket: RawSocket) -> UdpSocket {
         UdpSocket::from_std(FromRawSocket::from_raw_socket(socket))
+    }
+}
+
+#[cfg(target_os = "hermit")]
+impl IntoAbi for UdpSocket {
+    type AbiType = abi::net::Socket;
+    fn into_abi(self) -> Self::AbiType {
+        unimplemented!()
+    }
+}
+
+#[cfg(target_os = "hermit")]
+impl AsAbi for UdpSocket {
+    type AbiType = abi::net::Socket;
+    fn as_abi(&self) -> Self::AbiType {
+        unimplemented!()
+    }
+}
+
+#[cfg(target_os = "hermit")]
+impl FromAbi for UdpSocket {
+    type AbiType = abi::net::Socket;
+    unsafe fn from_abi(_socket: Self::AbiType) -> Self {
+        unimplemented!()
     }
 }

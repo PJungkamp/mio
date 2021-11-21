@@ -5,6 +5,10 @@ use std::net::{self, Shutdown, SocketAddr};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 #[cfg(windows)]
 use std::os::windows::io::{AsRawSocket, FromRawSocket, IntoRawSocket, RawSocket};
+#[cfg(target_os = "hermit")]
+use std::os::hermit::abi;
+#[cfg(target_os = "hermit")]
+use std::os::hermit::io::{AsAbi, FromAbi, IntoAbi};
 
 use crate::io_source::IoSource;
 use crate::sys::tcp::{connect, new_for_addr};
@@ -79,6 +83,8 @@ impl TcpStream {
         let stream = unsafe { TcpStream::from_raw_fd(socket) };
         #[cfg(windows)]
         let stream = unsafe { TcpStream::from_raw_socket(socket as _) };
+        #[cfg(target_os = "hermit")]
+        let stream = unsafe { TcpStream::from_abi(socket) };
         connect(&stream.inner, addr)?;
         Ok(stream)
     }
@@ -330,5 +336,29 @@ impl FromRawSocket for TcpStream {
     /// non-blocking mode.
     unsafe fn from_raw_socket(socket: RawSocket) -> TcpStream {
         TcpStream::from_std(FromRawSocket::from_raw_socket(socket))
+    }
+}
+
+#[cfg(target_os = "hermit")]
+impl IntoAbi for TcpStream {
+    type AbiType = abi::net::Socket;
+    fn into_abi(self) -> Self::AbiType {
+        self.inner.into_inner().into_abi()
+    }
+}
+
+#[cfg(target_os = "hermit")]
+impl AsAbi for TcpStream {
+    type AbiType = abi::net::Socket;
+    fn as_abi(&self) -> Self::AbiType {
+        self.inner.as_abi()
+    }
+}
+
+#[cfg(target_os = "hermit")]
+impl FromAbi for TcpStream {
+    type AbiType = abi::net::Socket;
+    unsafe fn from_abi(socket: Self::AbiType) -> Self {
+        TcpStream::from_std(FromAbi::from_abi(socket))
     }
 }

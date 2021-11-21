@@ -11,6 +11,10 @@
 // Disallow warnings in examples.
 #![doc(test(attr(deny(warnings))))]
 
+// hermit has access to it's event system through re-exports of std
+// and requires this feature for access
+#![cfg_attr(target_os = "hermit", feature(rustc_private))]
+
 //! Mio is a fast, low-level I/O library for Rust focusing on non-blocking APIs
 //! and event notification for building high performance I/O apps with as little
 //! overhead as possible over the OS abstractions.

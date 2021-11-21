@@ -3,6 +3,10 @@ use std::net::{self, SocketAddr};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 #[cfg(windows)]
 use std::os::windows::io::{AsRawSocket, FromRawSocket, IntoRawSocket, RawSocket};
+#[cfg(target_os = "hermit")]
+use std::os::hermit::io::{AsAbi, FromAbi, IntoAbi};
+#[cfg(target_os = "hermit")]
+use std::os::hermit::abi;
 use std::{fmt, io};
 
 use crate::io_source::IoSource;
@@ -28,9 +32,7 @@ use crate::{event, sys, Interest, Registry, Token};
 ///
 /// let mut poll = Poll::new()?;
 /// let mut events = Events::with_capacity(128);
-///
-/// // Register the socket with `Poll`
-/// poll.registry().register(&mut listener, Token(0), Interest::READABLE)?;
+/// // Register the socket with `Poll` poll.registry().register(&mut listener, Token(0), Interest::READABLE)?;
 ///
 /// poll.poll(&mut events, Some(Duration::from_millis(100)))?;
 ///
@@ -58,6 +60,8 @@ impl TcpListener {
         let listener = unsafe { TcpListener::from_raw_fd(socket) };
         #[cfg(windows)]
         let listener = unsafe { TcpListener::from_raw_socket(socket as _) };
+        #[cfg(target_os = "hermit")]
+        let listener = unsafe { TcpListener::from_abi(socket) };
 
         // On platforms with Berkeley-derived sockets, this allows to quickly
         // rebind a socket, without needing to wait for the OS to clean up the
@@ -66,7 +70,7 @@ impl TcpListener {
         // On Windows, this allows rebinding sockets which are actively in use,
         // which allows “socket hijacking”, so we explicitly don't set it here.
         // https://docs.microsoft.com/en-us/windows/win32/winsock/using-so-reuseaddr-and-so-exclusiveaddruse
-        #[cfg(not(windows))]
+        #[cfg(unix)]
         set_reuseaddr(&listener.inner, true)?;
 
         bind(&listener.inner, addr)?;
@@ -213,5 +217,29 @@ impl FromRawSocket for TcpListener {
     /// non-blocking mode.
     unsafe fn from_raw_socket(socket: RawSocket) -> TcpListener {
         TcpListener::from_std(FromRawSocket::from_raw_socket(socket))
+    }
+}
+
+#[cfg(target_os = "hermit")]
+impl IntoAbi for TcpListener {
+    type AbiType = abi::net::Socket;
+    fn into_abi(self) -> Self::AbiType {
+        self.inner.into_inner().into_abi()
+    }
+}
+
+#[cfg(target_os = "hermit")]
+impl AsAbi for TcpListener {
+    type AbiType = abi::net::Socket;
+    fn as_abi(&self) -> Self::AbiType {
+        self.inner.as_abi()
+    }
+}
+
+#[cfg(target_os = "hermit")]
+impl FromAbi for TcpListener {
+    type AbiType = abi::net::Socket;
+    unsafe fn from_abi(socket: Self::AbiType) -> Self {
+        TcpListener::from_std(FromAbi::from_abi(socket))
     }
 }
